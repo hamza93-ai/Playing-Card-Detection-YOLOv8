@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Card Detection</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/onnxruntime-web/1.14.0/ort.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: white;
+            margin: 20px 0;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 1200px;
+            width: 100%;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            margin: 0 auto;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        #webcam {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+        
+        #startBtn {
+            background: #10b981;
+            color: white;
+        }
+        
+        #startBtn:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+        }
+        
+        #stopBtn {
+            background: #ef4444;
+            color: white;
+        }
+        
+        #stopBtn:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+        }
+        
+        #stopBtn:disabled, #startBtn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .file-upload {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            background: #f9fafb;
+        }
+        
+        .file-upload label {
+            color: #667eea;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        #status {
+            text-align: center;
+            margin: 15px 0;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        
+        .status-loading {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-ready {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🃏 Live Card Detection</h1>
+    
+    <div class="container">
+        <div class="file-upload">
+            <label for="modelFile">📁 Upload your ONNX model (best.onnx)</label>
+            <input type="file" id="modelFile" accept=".onnx" style="display:none">
+            <button onclick="document.getElementById('modelFile').click()" style="background: #667eea; color: white;">Choose Model File</button>
+            <span id="fileName" style="color: #6b7280; font-size: 14px;">No file selected</span>
+        </div>
+        
+        <div id="status" class="status-loading">Upload your model to begin</div>
+        
+        <div class="controls">
+            <button id="startBtn" disabled>Start Detection</button>
+            <button id="stopBtn" disabled>Stop Detection</button>
+        </div>
+        
+        <div class="video-container">
+            <video id="webcam" autoplay playsinline></video>
+            <canvas id="canvas"></canvas>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-label">FPS</div>
+                <div class="stat-value" id="fps">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Cards Detected</div>
+                <div class="stat-value" id="detections">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Inference Time</div>
+                <div class="stat-value" id="inferenceTime">0ms</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let session = null;
+        let isRunning = false;
+        let stream = null;
+        let animationId = null;
+        let lastTime = Date.now();
+        let frameCount = 0;
+        
+        const video = document.getElementById('webcam');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusDiv = document.getElementById('status');
+        const modelFileInput = document.getElementById('modelFile');
+        
+        // Class names for playing cards
+        const classNames = ['10C', '10D', '10H', '10S', '2C', '2D', '2H', '2S', '3C', '3D', '3H', '3S', '4C', '4D', '4H', '4S', '5C', '5D', '5H', '5S', '6C', '6D', '6H', '6S', '7C', '7D', '7H', '7S', '8C', '8D', '8H', '8S', '9C', '9D', '9H', '9S', 'AC', 'AD', 'AH', 'AS', 'JC', 'JD', 'JH', 'JS', 'KC', 'KD', 'KH', 'KS', 'QC', 'QD', 'QH', 'QS'];
+        
+        modelFileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('fileName').textContent = file.name;
+                await loadModel(file);
+            }
+        });
+        
+        async function loadModel(file) {
+            try {
+                statusDiv.textContent = 'Loading model...';
+                statusDiv.className = 'status-loading';
+                
+                const arrayBuffer = await file.arrayBuffer();
+                
+                // Try different execution providers
+                const options = {
+                    executionProviders: ['wasm'],
+                    graphOptimizationLevel: 'all'
+                };
+                
+                session = await ort.InferenceSession.create(arrayBuffer, options);
+                
+                console.log('Input name:', session.inputNames[0]);
+                console.log('Output name:', session.outputNames[0]);
+                
+                statusDiv.textContent = '✅ Model loaded! Ready to detect cards';
+                statusDiv.className = 'status-ready';
+                startBtn.disabled = false;
+                
+                console.log('Model loaded successfully');
+            } catch (error) {
+                statusDiv.textContent = '❌ Error loading model: ' + error.message;
+                statusDiv.className = 'status-error';
+                console.error('Full error:', error);
+                console.error('Error stack:', error.stack);
+            }
+        }
+        
+        async function startWebcam() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480 }
+                });
+                video.srcObject = stream;
+                
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                };
+                
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                isRunning = true;
+                detectCards();
+            } catch (error) {
+                statusDiv.textContent = '❌ Camera access denied';
+                statusDiv.className = 'status-error';
+                console.error('Error accessing webcam:', error);
+            }
+        }
+        
+        function stopWebcam() {
+            isRunning = false;
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        }
+        
+        function preprocessImage(video) {
+            const inputSize = 640;
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = inputSize;
+            tempCanvas.height = inputSize;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            tempCtx.drawImage(video, 0, 0, inputSize, inputSize);
+            const imageData = tempCtx.getImageData(0, 0, inputSize, inputSize);
+            
+            const float32Data = new Float32Array(3 * inputSize * inputSize);
+            for (let i = 0; i < imageData.data.length; i += 4) {
+                const idx = i / 4;
+                float32Data[idx] = imageData.data[i] / 255.0;
+                float32Data[inputSize * inputSize + idx] = imageData.data[i + 1] / 255.0;
+                float32Data[2 * inputSize * inputSize + idx] = imageData.data[i + 2] / 255.0;
+            }
+            
+            return new ort.Tensor('float32', float32Data, [1, 3, inputSize, inputSize]);
+        }
+        
+        function processOutput(output) {
+            const boxes = [];
+            const data = output.data;
+            const dims = output.dims;
+            
+            const numDetections = dims[2];
+            const numClasses = dims[1] - 4;
+            
+            for (let i = 0; i < numDetections; i++) {
+                let maxScore = 0;
+                let maxClass = 0;
+                
+                for (let j = 0; j < numClasses; j++) {
+                    const score = data[(4 + j) * numDetections + i];
+                    if (score > maxScore) {
+                        maxScore = score;
+                        maxClass = j;
+                    }
+                }
+                
+                if (maxScore > 0.6) {  // Increased confidence threshold from 0.5 to 0.6
+                    const x = data[0 * numDetections + i];
+                    const y = data[1 * numDetections + i];
+                    const w = data[2 * numDetections + i];
+                    const h = data[3 * numDetections + i];
+                    
+                    boxes.push({
+                        x: (x - w / 2) * canvas.width / 640,
+                        y: (y - h / 2) * canvas.height / 640,
+                        width: w * canvas.width / 640,
+                        height: h * canvas.height / 640,
+                        score: maxScore,
+                        class: maxClass
+                    });
+                }
+            }
+            
+            return boxes;
+        }
+        
+        async function detectCards() {
+            if (!isRunning) return;
+            
+            const startInference = performance.now();
+            
+            try {
+                const input = preprocessImage(video);
+                const feeds = {};
+                feeds[session.inputNames[0]] = input;
+                
+                const results = await session.run(feeds);
+                const output = results[session.outputNames[0]];
+                
+                const inferenceTime = performance.now() - startInference;
+                document.getElementById('inferenceTime').textContent = Math.round(inferenceTime) + 'ms';
+                
+                const boxes = processOutput(output);
+                document.getElementById('detections').textContent = boxes.length;
+                
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                boxes.forEach(box => {
+                    ctx.strokeStyle = '#10b981';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(box.x, box.y, box.width, box.height);
+                    
+                    const label = classNames[box.class] + ' ' + (box.score * 100).toFixed(1) + '%';
+                    ctx.fillStyle = '#10b981';
+                    ctx.fillRect(box.x, box.y - 25, ctx.measureText(label).width + 10, 25);
+                    
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillText(label, box.x + 5, box.y - 7);
+                });
+                
+                frameCount++;
+                const currentTime = Date.now();
+                if (currentTime - lastTime >= 1000) {
+                    document.getElementById('fps').textContent = frameCount;
+                    frameCount = 0;
+                    lastTime = currentTime;
+                }
+                
+            } catch (error) {
+                console.error('Detection error:', error);
+            }
+            
+            animationId = requestAnimationFrame(detectCards);
+        }
+        
+        startBtn.addEventListener('click', startWebcam);
+        stopBtn.addEventListener('click', stopWebcam);
+    </script>
+</body>
+</html>
