@@ -211,8 +211,6 @@ Playing-Card-Detection-YOLOv8/
 
 ---
 
-## 👤 Authors
+## 👤 Author
 
-**Group Members:** 73, 93, 33, 65
-**Subject:** Machine Learning
-**Instructor:** Sir Hamza Farooqi
+**Hamza Asif**
