@@ -220,7 +220,7 @@ Playing-Card-Detection-YOLOv8/
 ## 👥 Authors
 
 **Group Members — BS Artificial Intelligence, DUET Karachi**
-- Roll No. 73
 - Roll No. 93 — Hamza Asif
+- Roll No. 73
 - Roll No. 33
 - Roll No. 65
