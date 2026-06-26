@@ -1,6 +1,6 @@
 # 🃏 Playing Card Detection System — YOLOv8
 
-A real-time playing card detection system built using **YOLOv8** deep learning architecture. The model is trained to detect and classify all **52 standard playing cards** through a live webcam feed, deployed entirely in the browser using **ONNX Runtime**.
+A real-time playing card detection system built using **YOLOv8** deep learning architecture. The model is trained to detect and classify all **52 standard playing cards** through a live webcam feed, deployed entirely in the browser using **ONNX Runtime Web**.
 
 > 👥 Group Members: 73, 93, 33, 65 | 📚 Subject: Machine Learning | 👨‍🏫 Instructor: Sir Hamza Farooqi
 
@@ -26,9 +26,9 @@ This system uses **YOLOv8 Small (yolov8s)** to detect playing cards in real time
 
 ### 🎯 Objectives
 - Train a deep learning model to detect all 52 playing cards
-- Achieve real-time detection performance (>15 FPS)
 - Deploy through a browser-based interface using ONNX Runtime
 - Run entirely locally — no cloud or API calls needed
+- Achieve real-time detection with confidence scores
 
 ---
 
@@ -129,10 +129,13 @@ This system uses **YOLOv8 Small (yolov8s)** to detect playing cards in real time
 > ✅ Training stopped early at epoch 192 — best model saved at **epoch 162**.
 
 ### Inference Speed:
-- Preprocessing: 0.4ms
-- Inference: 4.8ms
-- Postprocess: 0.0ms
-- **Total: ~5.2ms per image**
+> ⚠️ Note: Training inference was measured on GPU (Google Colab Tesla T4).
+> Browser-based inference runs on CPU via ONNX Runtime Web — speed varies by device.
+
+| Environment | Inference Time | FPS |
+|---|---|---|
+| Google Colab (GPU) | ~5ms | 30+ |
+| Browser (CPU/WASM) | ~800–2800ms | 1–5 |
 
 ---
 
@@ -158,21 +161,23 @@ User Browser → Load ONNX Model → Access Webcam
 
 ### Step 1 — Train the Model (Google Colab)
 ```bash
-# Open the notebook in Google Colab
+# Open Card_Detection_Model_1.ipynb in Google Colab
 # Run all cells to train the model
 # Download: runs/detect/card_detector_v2/weights/best.onnx
 ```
 
 ### Step 2 — Run the Web Interface
-1. Save `card_detection.html` to your local machine
-2. Open the file in **Chrome or Edge** (WebGL required)
-3. Upload the `best.onnx` model file
-4. Allow webcam access
-5. Click **Start Detection**
+1. Save `playing_card_detection.html` to your local machine
+2. Place `best.onnx` in the **same folder**
+3. Open the HTML file in **Chrome or Edge**
+4. Click **"Choose Model File"** → select `best.onnx`
+5. Wait for ✅ green message: *"Model loaded! Ready to detect cards"*
+6. Allow webcam access
+7. Click **Start Detection**
 
 ### Step 3 — Start Detecting!
 - Hold any playing card in front of your webcam
-- The system will detect and label it in real time with a bounding box and confidence score
+- The system will detect and label it with a bounding box and confidence score
 
 ---
 
@@ -181,8 +186,8 @@ User Browser → Load ONNX Model → Access Webcam
 ```
 Playing-Card-Detection-YOLOv8/
 │
-├── playing_card_detection_yolov8_training.ipynb  # Training notebook (Google Colab)
-├── card_detection.html                           # Browser-based detection interface
+├── Card_Detection_Model_1.ipynb                  # Training notebook (Google Colab)
+├── playing_card_detection.html                   # Browser-based detection interface
 ├── best.onnx                                     # Exported trained model
 ├── Playing_Card_Detection_Project_Report.pdf     # Full project report
 └── README.md                                     # Project documentation
@@ -204,13 +209,18 @@ Playing-Card-Detection-YOLOv8/
 
 | Problem | Solution |
 |---|---|
-| Model won't load | Check ONNX export settings, use opset=12 |
-| Low FPS | Use lighter model (yolov8n) or reduce image size |
-| Poor accuracy | Retrain with more epochs or larger model |
-| Camera not working | Check browser permissions in Chrome/Edge |
+| Model won't load | Make sure best.onnx is selected via "Choose Model File" button |
+| All stats showing 0 | Upload ONNX file first, then click Start Detection |
+| Low FPS in browser | Normal — browser runs on CPU only, not GPU |
+| Camera not working | Allow camera permission in Chrome/Edge |
+| Card not detected | Hold card flat, ensure good lighting, use Chrome |
 
 ---
 
-## 👤 Author
+## 👥 Authors
 
-**Hamza Asif**
+**Group Members — BS Artificial Intelligence, DUET Karachi**
+- Roll No. 73
+- Roll No. 93 — Hamza Asif
+- Roll No. 33
+- Roll No. 65
